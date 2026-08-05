@@ -145,6 +145,13 @@ header('Content-Type: text/html; charset=utf-8');
     loading.classList.remove('show');
     loadBtn.disabled = false;
     video.controls = true;
+    video.onended = playNext;
+    video.onerror = function () {
+      if (seqMode && idx < urls.length) {
+        setStatus('SEQ', 'Skipping unplayable file…', 'seq');
+        playNext();
+      }
+    };
     playNext();
   }
 
