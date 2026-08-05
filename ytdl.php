@@ -21,6 +21,7 @@ const MP3_TIMEOUT = 600;        // seconds for audio download + mp3 conversion
 
 define('PYTHON', getenv('PYTHON') ?: 'python3');
 define('FFMPEG_DIR', getenv('FFMPEG_DIR') ?: '');
+define('YT_COOKIES', getenv('YT_COOKIES') ?: '');
 
 function json_out(array $data, int $code = 200): void
 {
@@ -75,6 +76,7 @@ $format = strtolower($_GET['format'] ?? 'mp4');
 $redirect = ($_GET['redirect'] ?? '') === '1';
 $stream = ($_GET['stream'] ?? '') === '1';
 $nocache = ($_GET['nocache'] ?? '') === '1';
+$client = trim((string) ($_GET['client'] ?? ''));
 
 if ($url === '') {
     json_out(['error' => 'missing url parameter', 'usage' => 'ytdl.php?url=<youtube url>&format=mp4|best|720p|audio'], 400);
@@ -113,14 +115,25 @@ if (!$nocache && is_file($cacheFile) && (time() - filemtime($cacheFile)) < CACHE
 
 if ($cached === null) {
     $watch = 'https://www.youtube.com/watch?v=' . $id;
-    $result = run_cmd([
+    $cmd = [
         PYTHON, '-m', 'yt_dlp',
         '--no-playlist', '--no-warnings', '--no-progress',
         '--socket-timeout', '20',
+    ];
+    if ($client !== '') {
+        $cmd[] = '--extractor-args';
+        $cmd[] = 'youtube:player_client=' . $client;
+    }
+    if (defined('YT_COOKIES') && YT_COOKIES !== '' && is_file(YT_COOKIES)) {
+        $cmd[] = '--cookies';
+        $cmd[] = YT_COOKIES;
+    }
+    $cmd = array_merge($cmd, [
         '--format', $fmt,
         '-J',
         $watch,
-    ], CMD_TIMEOUT);
+    ]);
+    $result = run_cmd($cmd, CMD_TIMEOUT);
 
     if (!$result['ok'] || $result['code'] !== 0) {
         $detail = $result['err'] !== '' ? $result['err'] : $result['out'];
