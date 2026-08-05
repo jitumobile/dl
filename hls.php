@@ -63,6 +63,10 @@ if (count($urls) === 0) {
     json_out(['error' => 'no valid mp4 URLs found in json'], 400);
 }
 
+if (($_GET['list'] ?? '') === '1') {
+    json_out(['count' => count($urls), 'urls' => $urls]);
+}
+
 function probe_duration(string $url): float
 {
     $cmd = 'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ' . escapeshellarg($url);

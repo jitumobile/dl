@@ -1,5 +1,5 @@
 <?php
-/* Mobile-first HLS player for a JSON array of remote mp4 URLs. */
+/* Mobile-first player for a JSON array of remote mp4 URLs. */
 header('Content-Type: text/html; charset=utf-8');
 ?><!DOCTYPE html>
 <html lang="en">
@@ -15,7 +15,6 @@ header('Content-Type: text/html; charset=utf-8');
     --text: #e8eaf0;
     --muted: #9aa3b2;
     --accent: #ff3d3d;
-    --accent-dark: #d32f2f;
     --ok: #4caf50;
     --err: #ff5252;
   }
@@ -35,35 +34,17 @@ header('Content-Type: text/html; charset=utf-8');
   h1 { font-size: 20px; font-weight: 700; margin: 0 0 16px; display: flex; align-items: center; gap: 10px; }
   h1 .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
 
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 16px;
-  }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
   .input-row { display: flex; gap: 10px; }
   .url-wrap { position: relative; flex: 1; min-width: 0; }
   #jsonUrl {
-    width: 100%;
-    background: #12151d;
-    border: 1.5px solid var(--border);
-    border-radius: 14px;
-    color: var(--text);
-    font-size: 15px;
-    padding: 13px 14px;
-    outline: none;
+    width: 100%; background: #12151d; border: 1.5px solid var(--border); border-radius: 14px;
+    color: var(--text); font-size: 15px; padding: 13px 14px; outline: none;
   }
   #jsonUrl:focus { border-color: var(--accent); }
   #loadBtn {
-    flex-shrink: 0;
-    border: none;
-    border-radius: 14px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 15px;
-    font-weight: 700;
-    padding: 0 20px;
-    cursor: pointer;
+    flex-shrink: 0; border: none; border-radius: 14px; background: var(--accent); color: #fff;
+    font-size: 15px; font-weight: 700; padding: 0 20px; cursor: pointer;
   }
   #loadBtn:disabled { opacity: .6; }
 
@@ -76,21 +57,24 @@ header('Content-Type: text/html; charset=utf-8');
   .spinner { width: 18px; height: 18px; border: 2.5px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .status { display: none; margin-top: 12px; font-size: 13px; color: var(--muted); align-items: center; gap: 8px; }
+  .status.show { display: flex; }
+  .status .pill {
+    flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+    background: rgba(255,61,61,.15); color: var(--accent); border: 1px solid rgba(255,61,61,.4);
+  }
+  .status .pill.ok { background: rgba(76,175,80,.15); color: var(--ok); border-color: rgba(76,175,80,.4); }
+  .status .pill.seq { background: rgba(255,152,0,.15); color: #ff9800; border-color: rgba(255,152,0,.4); }
+
   .msg { display: none; margin-top: 14px; font-size: 14px; padding: 12px 14px; border-radius: 12px; }
   .msg.err { display: block; background: rgba(255,82,82,.12); color: var(--err); border: 1px solid rgba(255,82,82,.35); }
+  .msg.warn { display: block; background: rgba(255,152,0,.1); color: #ff9800; border: 1px solid rgba(255,152,0,.35); }
 
   .link-box { margin-top: 14px; display: none; }
   .link-box.show { display: block; }
   .link-box a {
-    display: block;
-    background: #12151d;
-    border: 1.5px solid rgba(76,175,80,.4);
-    color: var(--ok);
-    border-radius: 12px;
-    padding: 12px 14px;
-    font-size: 12px;
-    word-break: break-all;
-    text-decoration: none;
+    display: block; background: #12151d; border: 1.5px solid rgba(76,175,80,.4); color: var(--ok);
+    border-radius: 12px; padding: 12px 14px; font-size: 12px; word-break: break-all; text-decoration: none;
   }
   .hint { margin-top: 14px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 </style>
@@ -109,6 +93,7 @@ header('Content-Type: text/html; charset=utf-8');
   </div>
 
   <div class="loading" id="loading"><span class="spinner"></span><span>Loading stream&hellip;</span></div>
+  <div class="status" id="status"><span class="pill" id="statusPill">HLS</span><span id="statusText"></span></div>
   <div class="msg err" id="err"></div>
 
   <div class="player" id="player">
@@ -119,7 +104,7 @@ header('Content-Type: text/html; charset=utf-8');
     <a id="link" href="#" target="_blank" rel="noopener"></a>
   </div>
 
-  <div class="hint" id="hint">Paste a JSON URL containing a plain array of direct mp4 URLs. The player builds a single HLS stream from them.</div>
+  <div class="hint" id="hint">Paste a JSON URL containing a plain array of direct mp4 URLs. The player builds a single stream from them.</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
@@ -128,19 +113,60 @@ header('Content-Type: text/html; charset=utf-8');
   const $ = (id) => document.getElementById(id);
   const input = $('jsonUrl'), loadBtn = $('loadBtn');
   const player = $('player'), video = $('video');
-  const loading = $('loading'), errBox = $('err'), linkBox = $('linkBox'), link = $('link');
+  const loading = $('loading'), errBox = $('err');
+  const status = $('status'), statusPill = $('statusPill'), statusText = $('statusText');
+  const linkBox = $('linkBox'), link = $('link');
 
-  function showErr(m) { errBox.textContent = m; errBox.style.display = 'block'; }
-  function hideErr() { errBox.style.display = 'none'; }
+  let hls = null, seqMode = false, urls = [], idx = 0;
+
+  function setStatus(pill, text, cls) {
+    statusPill.textContent = pill;
+    statusPill.className = 'pill' + (cls ? ' ' + cls : '');
+    statusText.textContent = text;
+    status.classList.add('show');
+  }
+  function showErr(m, cls) {
+    errBox.textContent = m;
+    errBox.className = 'msg ' + (cls || 'err');
+  }
+  function hideErr() { errBox.classList.remove('err', 'warn'); errBox.style.display = 'none'; }
 
   function buildM3u8Url(jsonUrl) {
-    return 'hls.php?json=' + encodeURIComponent(jsonUrl);
+    return 'hls.php?json=' + encodeURIComponent(jsonUrl) + '&probe=1';
+  }
+
+  function startSequential() {
+    if (seqMode) return;
+    seqMode = true;
+    hideErr();
+    idx = 0;
+    setStatus('SEQ', urls.length + ' files, playing in sequence', 'seq');
+    player.classList.add('show');
+    loading.classList.remove('show');
+    loadBtn.disabled = false;
+    video.controls = true;
+    playNext();
+  }
+
+  function playNext() {
+    if (!seqMode) return;
+    if (idx >= urls.length) {
+      setStatus('SEQ', 'Done — all ' + urls.length + ' files played', 'seq');
+      return;
+    }
+    setStatus('SEQ', 'Playing ' + (idx + 1) + ' / ' + urls.length, 'seq');
+    video.src = urls[idx];
+    idx++;
+    video.play().catch(() => {});
   }
 
   function loadStream(jsonUrl) {
     hideErr();
+    seqMode = false;
+    if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
     player.classList.remove('show');
     linkBox.classList.remove('show');
+    status.classList.remove('show');
     loading.classList.add('show');
     loadBtn.disabled = true;
 
@@ -149,24 +175,33 @@ header('Content-Type: text/html; charset=utf-8');
     link.textContent = m3u8;
     linkBox.classList.add('show');
 
+    video.ontimeupdate = null;
+    video.onended = null;
+    video.onerror = null;
+
+    // Native HLS (Safari)
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.onerror = function () { fetchUrlList(jsonUrl); };
       video.src = m3u8;
       video.play().catch(() => {});
       player.classList.add('show');
       loading.classList.remove('show');
       loadBtn.disabled = false;
+      setStatus('HLS', 'Native HLS (Safari)', 'ok');
       return;
     }
 
+    // hls.js
     if (window.Hls && Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true });
+      hls = new Hls({ enableWorker: true });
       hls.loadSource(m3u8);
       hls.attachMedia(video);
       hls.on(Hls.Events.ERROR, function (e, data) {
         if (data && data.fatal) {
-          showErr('Stream error: ' + (data.details || 'unknown'));
-          loading.classList.remove('show');
-          loadBtn.disabled = false;
+          setStatus('HLS', 'HLS failed (' + (data.details || 'error') + ') — switching to sequential', 'seq');
+          try { hls.destroy(); } catch (err) {}
+          hls = null;
+          fetchUrlList(jsonUrl);
         }
       });
       hls.on(Hls.Events.MANIFEST_PARSED, function () {
@@ -174,13 +209,34 @@ header('Content-Type: text/html; charset=utf-8');
         player.classList.add('show');
         loading.classList.remove('show');
         loadBtn.disabled = false;
+        setStatus('HLS', 'Streaming via HLS', 'ok');
       });
       return;
     }
 
-    showErr('HLS playback not supported in this browser.');
-    loading.classList.remove('show');
-    loadBtn.disabled = false;
+    // No HLS support at all
+    fetchUrlList(jsonUrl);
+  }
+
+  function fetchUrlList(jsonUrl) {
+    setStatus('SEQ', 'Fetching file list…', 'seq');
+    fetch('hls.php?json=' + encodeURIComponent(jsonUrl) + '&list=1')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !Array.isArray(data.urls) || data.urls.length === 0) {
+          showErr('No valid mp4 URLs found in that JSON.');
+          loading.classList.remove('show');
+          loadBtn.disabled = false;
+          return;
+        }
+        urls = data.urls;
+        startSequential();
+      })
+      .catch(function (e) {
+        showErr('Could not read the file list: ' + e.message);
+        loading.classList.remove('show');
+        loadBtn.disabled = false;
+      });
   }
 
   loadBtn.addEventListener('click', () => {
