@@ -1,0 +1,201 @@
+<?php
+/* Mobile-first HLS player for a JSON array of remote mp4 URLs. */
+header('Content-Type: text/html; charset=utf-8');
+?><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HLS Player</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1e27;
+    --border: #2a2f3a;
+    --text: #e8eaf0;
+    --muted: #9aa3b2;
+    --accent: #ff3d3d;
+    --accent-dark: #d32f2f;
+    --ok: #4caf50;
+    --err: #ff5252;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: env(safe-area-inset-top) 12px env(safe-area-inset-bottom);
+  }
+  .wrap { width: 100%; max-width: 640px; padding: 20px 0 40px; }
+  h1 { font-size: 20px; font-weight: 700; margin: 0 0 16px; display: flex; align-items: center; gap: 10px; }
+  h1 .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .input-row { display: flex; gap: 10px; }
+  .url-wrap { position: relative; flex: 1; min-width: 0; }
+  #jsonUrl {
+    width: 100%;
+    background: #12151d;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    font-size: 15px;
+    padding: 13px 14px;
+    outline: none;
+  }
+  #jsonUrl:focus { border-color: var(--accent); }
+  #loadBtn {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 14px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 0 20px;
+    cursor: pointer;
+  }
+  #loadBtn:disabled { opacity: .6; }
+
+  .player { margin-top: 16px; display: none; }
+  .player.show { display: block; }
+  .player video { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 16/9; }
+
+  .loading { display: none; margin-top: 14px; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+  .loading.show { display: flex; }
+  .spinner { width: 18px; height: 18px; border: 2.5px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .msg { display: none; margin-top: 14px; font-size: 14px; padding: 12px 14px; border-radius: 12px; }
+  .msg.err { display: block; background: rgba(255,82,82,.12); color: var(--err); border: 1px solid rgba(255,82,82,.35); }
+
+  .link-box { margin-top: 14px; display: none; }
+  .link-box.show { display: block; }
+  .link-box a {
+    display: block;
+    background: #12151d;
+    border: 1.5px solid rgba(76,175,80,.4);
+    color: var(--ok);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12px;
+    word-break: break-all;
+    text-decoration: none;
+  }
+  .hint { margin-top: 14px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="dot"></span>HLS Player</h1>
+
+  <div class="card">
+    <div class="input-row">
+      <div class="url-wrap">
+        <input id="jsonUrl" type="url" inputmode="url" placeholder="JSON URL (plain array of mp4 URLs)" autocomplete="off">
+      </div>
+      <button id="loadBtn">Load</button>
+    </div>
+  </div>
+
+  <div class="loading" id="loading"><span class="spinner"></span><span>Loading stream&hellip;</span></div>
+  <div class="msg err" id="err"></div>
+
+  <div class="player" id="player">
+    <video id="video" controls playsinline></video>
+  </div>
+
+  <div class="link-box" id="linkBox">
+    <a id="link" href="#" target="_blank" rel="noopener"></a>
+  </div>
+
+  <div class="hint" id="hint">Paste a JSON URL containing a plain array of direct mp4 URLs. The player builds a single HLS stream from them.</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const input = $('jsonUrl'), loadBtn = $('loadBtn');
+  const player = $('player'), video = $('video');
+  const loading = $('loading'), errBox = $('err'), linkBox = $('linkBox'), link = $('link');
+
+  function showErr(m) { errBox.textContent = m; errBox.style.display = 'block'; }
+  function hideErr() { errBox.style.display = 'none'; }
+
+  function buildM3u8Url(jsonUrl) {
+    return 'hls.php?json=' + encodeURIComponent(jsonUrl);
+  }
+
+  function loadStream(jsonUrl) {
+    hideErr();
+    player.classList.remove('show');
+    linkBox.classList.remove('show');
+    loading.classList.add('show');
+    loadBtn.disabled = true;
+
+    const m3u8 = buildM3u8Url(jsonUrl);
+    link.href = m3u8;
+    link.textContent = m3u8;
+    linkBox.classList.add('show');
+
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = m3u8;
+      video.play().catch(() => {});
+      player.classList.add('show');
+      loading.classList.remove('show');
+      loadBtn.disabled = false;
+      return;
+    }
+
+    if (window.Hls && Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: true });
+      hls.loadSource(m3u8);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, function (e, data) {
+        if (data && data.fatal) {
+          showErr('Stream error: ' + (data.details || 'unknown'));
+          loading.classList.remove('show');
+          loadBtn.disabled = false;
+        }
+      });
+      hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        video.play().catch(() => {});
+        player.classList.add('show');
+        loading.classList.remove('show');
+        loadBtn.disabled = false;
+      });
+      return;
+    }
+
+    showErr('HLS playback not supported in this browser.');
+    loading.classList.remove('show');
+    loadBtn.disabled = false;
+  }
+
+  loadBtn.addEventListener('click', () => {
+    const v = input.value.trim();
+    if (!v) { showErr('Paste a JSON URL first.'); return; }
+    loadStream(v);
+  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadBtn.click(); });
+
+  const initial = new URLSearchParams(location.search).get('json');
+  if (initial) {
+    input.value = initial;
+    loadStream(initial);
+  }
+})();
+</script>
+</body>
+</html>
