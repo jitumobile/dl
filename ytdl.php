@@ -124,7 +124,7 @@ if ($cached === null) {
         $cmd[] = '--extractor-args';
         $cmd[] = 'youtube:player_client=' . $client;
     }
-    if (defined('YT_COOKIES') && YT_COOKIES !== '' && is_file(YT_COOKIES)) {
+    if (defined('YT_COOKIES') && YT_COOKIES !== '' && is_file(YT_COOKIES) && ($_GET['nocookies'] ?? '') !== '1') {
         $cmd[] = '--cookies';
         $cmd[] = YT_COOKIES;
     }
