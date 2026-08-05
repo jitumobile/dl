@@ -175,46 +175,6 @@ header('Content-Type: text/html; charset=utf-8');
     link.textContent = m3u8;
     linkBox.classList.add('show');
 
-    video.ontimeupdate = null;
-    video.onended = null;
-    video.onerror = null;
-
-    // Native HLS (Safari)
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.onerror = function () { fetchUrlList(jsonUrl); };
-      video.src = m3u8;
-      video.play().catch(() => {});
-      player.classList.add('show');
-      loading.classList.remove('show');
-      loadBtn.disabled = false;
-      setStatus('HLS', 'Native HLS (Safari)', 'ok');
-      return;
-    }
-
-    // hls.js
-    if (window.Hls && Hls.isSupported()) {
-      hls = new Hls({ enableWorker: true });
-      hls.loadSource(m3u8);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.ERROR, function (e, data) {
-        if (data && data.fatal) {
-          setStatus('HLS', 'HLS failed (' + (data.details || 'error') + ') — switching to sequential', 'seq');
-          try { hls.destroy(); } catch (err) {}
-          hls = null;
-          fetchUrlList(jsonUrl);
-        }
-      });
-      hls.on(Hls.Events.MANIFEST_PARSED, function () {
-        video.play().catch(() => {});
-        player.classList.add('show');
-        loading.classList.remove('show');
-        loadBtn.disabled = false;
-        setStatus('HLS', 'Streaming via HLS', 'ok');
-      });
-      return;
-    }
-
-    // No HLS support at all
     fetchUrlList(jsonUrl);
   }
 
