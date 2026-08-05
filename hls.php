@@ -75,11 +75,13 @@ function probe_duration(string $url): float
     return $d > 0 && $d < 10800 ? $d : 60.0;
 }
 
-$playlist = "#EXTM3U\n#EXT-X-VERSION:6\n#EXT-X-TARGETDURATION:60\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-MEDIA-SEQUENCE:0\n";
+$jsonUrlParam = urlencode($jsonUrl);
+$playlist = "#EXTM3U\n#EXT-X-VERSION:6\n#EXT-X-TARGETDURATION:60\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-INDEPENDENT-SEGMENTS\n";
 $count = count($urls);
 foreach ($urls as $i => $url) {
     $dur = $probe ? probe_duration($url) : 60.0;
-    $playlist .= '#EXTINF:' . number_format($dur, 3, '.', '') . ",\n" . $url . "\n";
+    $seg = 'seg.php?json=' . $jsonUrlParam . '&i=' . $i;
+    $playlist .= '#EXTINF:' . number_format($dur, 3, '.', '') . ",\n" . $seg . "\n";
     if ($i < $count - 1) {
         $playlist .= "#EXT-X-DISCONTINUITY\n";
     }
