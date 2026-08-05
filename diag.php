@@ -14,3 +14,7 @@ echo "--- test run ---\n";
 $cmd = "python3 -m yt_dlp --no-playlist --no-warnings --no-progress --socket-timeout 20 --cookies /etc/ytdl/cookies.txt --format best -J 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' 2>&1";
 $out3 = shell_exec($cmd . ' | tail -c 2000');
 echo $out3 . "\n";
+echo "--- list formats tail ---\n";
+$cmd2 = "python3 -m yt_dlp --no-playlist --no-warnings --no-progress --socket-timeout 20 --cookies /etc/ytdl/cookies.txt --list-formats 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' 2>&1";
+$out4 = shell_exec($cmd2 . ' | tail -n 15');
+echo $out4 . "\n";
