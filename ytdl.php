@@ -21,7 +21,7 @@ const MP3_TIMEOUT = 600;        // seconds for audio download + mp3 conversion
 
 define('PYTHON', getenv('PYTHON') ?: 'python3');
 define('FFMPEG_DIR', getenv('FFMPEG_DIR') ?: '');
-define('YT_COOKIES', getenv('YT_COOKIES') ?: '');
+define('YT_COOKIES', getenv('YT_COOKIES') ?: (is_file('/etc/ytdl/cookies.txt') ? '/etc/ytdl/cookies.txt' : ''));
 
 function json_out(array $data, int $code = 200): void
 {
@@ -210,6 +210,14 @@ if ($stream && isset($cached['url'])) {
             if (FFMPEG_DIR !== '') {
                 $mp3Cmd[] = '--ffmpeg-location';
                 $mp3Cmd[] = FFMPEG_DIR;
+            }
+            if ($client !== '') {
+                $mp3Cmd[] = '--extractor-args';
+                $mp3Cmd[] = 'youtube:player_client=' . $client;
+            }
+            if (defined('YT_COOKIES') && YT_COOKIES !== '' && is_file(YT_COOKIES)) {
+                $mp3Cmd[] = '--cookies';
+                $mp3Cmd[] = YT_COOKIES;
             }
             $mp3Cmd = array_merge($mp3Cmd, [
                 '-f', 'bestaudio/best',

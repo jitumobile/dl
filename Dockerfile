@@ -10,8 +10,12 @@ RUN a2enmod rewrite headers
 COPY apache-render.conf /etc/apache2/sites-available/000-render.conf
 RUN a2ensite 000-render
 
+COPY entrypoint.sh /usr/local/bin/ytdl-entry.sh
+RUN chmod +x /usr/local/bin/ytdl-entry.sh
+
 WORKDIR /var/www/html
 COPY . /var/www/html
 
 EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/ytdl-entry.sh"]
 CMD ["apache2-foreground"]
