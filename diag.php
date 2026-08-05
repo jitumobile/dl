@@ -16,7 +16,7 @@ $out3 = shell_exec($cmd . ' | tail -c 2000');
 echo $out3 . "\n";
 exec('which ffprobe ffmpeg 2>&1', $w, $wc);
 echo "which: " . implode(' | ', $w) . "\n";
-exec('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" 2>&1', $pf, $pc);
+exec('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4" 2>&1', $pf, $pc);
 echo "ffprobe test: code=" . $pc . " out=" . implode(' | ', $pf) . "\n";
 echo "--- list formats tail ---\n";
 $cmd2 = "python3 -m yt_dlp --no-playlist --no-warnings --no-progress --socket-timeout 20 --cookies /etc/ytdl/cookies.txt --extractor-args 'youtube:player_client=web_safari' --list-formats 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' 2>&1";
