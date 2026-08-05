@@ -10,3 +10,7 @@ exec('python3 -m yt_dlp --version 2>&1', $o, $c);
 echo "yt-dlp version: " . implode("\n", $o) . "\n";
 exec('ls -la /etc/ytdl 2>&1', $o2, $c2);
 echo "ls /etc/ytdl:\n" . implode("\n", $o2) . "\n";
+echo "--- test run ---\n";
+$cmd = "python3 -m yt_dlp --no-playlist --no-warnings --no-progress --socket-timeout 20 --cookies /etc/ytdl/cookies.txt --format best -J 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' 2>&1";
+$out3 = shell_exec($cmd . ' | tail -c 2000');
+echo $out3 . "\n";
